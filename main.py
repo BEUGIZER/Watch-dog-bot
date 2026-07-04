@@ -77,6 +77,21 @@ async def main():
         )
         return
 
+    # Decode application ID from token for diagnostic purposes
+    try:
+        import base64
+        app_id_b64 = TOKEN.split(".")[0]
+        # Add padding if needed
+        padding = 4 - len(app_id_b64) % 4
+        if padding != 4:
+            app_id_b64 += "=" * padding
+        app_id = base64.b64decode(app_id_b64).decode("utf-8")
+        print(f"[INFO] Bot Application ID: {app_id}")
+        print(f"[INFO] Make sure THIS application has intents enabled at:")
+        print(f"[INFO] https://discord.com/developers/applications/{app_id}/bot")
+    except Exception:
+        print("[INFO] Could not decode application ID from token.")
+
     bot = GuardBot()
     async with bot:
         await bot.start(TOKEN)
