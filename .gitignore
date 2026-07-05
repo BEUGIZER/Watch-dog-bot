@@ -47,3 +47,17 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pythonlibs/
+.venv/
+*.egg-info/
+
+# Bot database (SQLite — do not commit, use Railway volume)
+guard.db
+
+# Environment
+.env
