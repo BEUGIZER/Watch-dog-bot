@@ -19,6 +19,7 @@ COGS = [
     "cogs.verification",
     "cogs.strikes",
     "cogs.config",
+    "cogs.presence",
 ]
 
 
