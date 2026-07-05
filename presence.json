@@ -31,12 +31,12 @@
     "commands": "All slash commands appear automatically in the bot profile Commands tab."
   },
 
-  "status": "streaming",
+  "status": "online",
 
   "activity_type": "watching",
   "activity_name": "for rule violations",
 
   "custom_status": "",
 
-  "streaming_url": "https://discord.gg/EySeVSyDU"
+  "streaming_url": ""
 }
