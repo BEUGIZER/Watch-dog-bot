@@ -168,7 +168,7 @@ class Config(commands.Cog):
                 "verification_level": guild.verification_level,
                 "send_messages": everyone.permissions.send_messages,
             }
-            await db.set_guild_config_field(guild.id, "lockdown_enabled", 1)
+            await db.set_guild_config_field(guild.id, "lockdown_enabled", True)
             try:
                 await guild.edit(verification_level=discord.VerificationLevel.highest)
             except discord.Forbidden:
@@ -193,7 +193,7 @@ class Config(commands.Cog):
                         pass
             await interaction.followup.send("Lockdown **enabled**. Server is now restricted.", ephemeral=True)
         else:
-            await db.set_guild_config_field(guild.id, "lockdown_enabled", 0)
+            await db.set_guild_config_field(guild.id, "lockdown_enabled", False)
             # Restore pre-lockdown state if available, otherwise use safe defaults
             prior = _pre_lockdown_state.pop(guild.id, None)
             restore_level = prior["verification_level"] if prior else discord.VerificationLevel.low

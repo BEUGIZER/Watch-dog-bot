@@ -47,24 +47,46 @@ Use the **OAuth2 → URL Generator** with these scopes and permissions:
 
 Or use this permission integer: `1101659695094`
 
-### 3. Set the Bot Token (Replit)
+### 3. Set Environment Variables
 
-1. In your Repl, go to **Tools → Secrets**.
-2. Add a secret:
-   - **Key:** `DISCORD_TOKEN`
-   - **Value:** your bot token from step 1
+The bot requires two environment variables:
 
-> Never hardcode or commit your token. The bot reads it from the `DISCORD_TOKEN` environment variable.
+| Variable | Description |
+|---|---|
+| `DISCORD_TOKEN` | Your bot token from the Developer Portal |
+| `DATABASE_URL` | PostgreSQL connection string (provided automatically by Railway) |
+
+**On Replit:** Go to **Tools → Secrets** and add both.  
+**On Railway:** `DISCORD_TOKEN` is added manually; `DATABASE_URL` is injected automatically when you add a Postgres database.
+
+> Never hardcode or commit your token.
 
 ### 4. Run the Bot
 
 The bot runs via the **Guard Bot** workflow in Replit. Click **Run** or start the workflow manually.
 
-For local development, copy `.env.example` to `.env`, fill in your token, and run:
+For local development, copy `.env.example` to `.env`, fill in your credentials, and run:
 ```bash
 pip install -r requirements.txt
 python main.py
 ```
+
+---
+
+## Deploying to Railway
+
+Railway is the recommended hosting platform — it provides persistent PostgreSQL, free tier, and 24/7 uptime.
+
+### Steps
+
+1. Push this repo to GitHub (already done).
+2. Go to [railway.app](https://railway.app) → **New Project** → **Deploy from GitHub repo** → select **Watch-dog-bot**.
+3. In your project, click **+ New** → **Database** → **Add PostgreSQL**.  
+   Railway will automatically set `DATABASE_URL` in your service's environment.
+4. Go to your bot service → **Variables** → add `DISCORD_TOKEN` = your bot token.
+5. Railway auto-detects `nixpacks.toml` and runs `python main.py`. Hit **Deploy**.
+
+That's it — data persists forever across redeploys because it lives in Postgres, not on the filesystem.
 
 ---
 
@@ -84,7 +106,7 @@ python main.py
 | `/config log-channel #channel` | Set the log channel |
 | `/config timeout strike:1\|2\|3 minutes:…` | Set timeout durations |
 | `/config strike3-action action:timeout\|kick\|ban` | Set the strike 3 action |
-| `/config decay days:…` | Set strike decay in days |
+| `/config decay days:…` | Set strike decay in days (0 = never) |
 | `/config join-limit count:… window:…` | Set anti-raid join rate |
 | `/config min-account-age days:…` | Set new account flag threshold |
 | `/bannedword-add word:…` | Add a banned word |
@@ -118,9 +140,8 @@ cogs/
   verification.py    # Verify button/gate
   strikes.py         # Strike slash commands
   config.py          # Config + emergency slash commands
-db.py                # Database connection + all queries (aiosqlite)
+db.py                # Database helpers (asyncpg / PostgreSQL)
 utils.py             # Shared helpers (embeds, permission checks)
-guard.db             # SQLite database (auto-created on first run)
 requirements.txt
 ```
 
@@ -128,12 +149,8 @@ requirements.txt
 
 ## Database
 
-Uses **SQLite** (`guard.db`, auto-created). Stores strikes, strike history, per-guild config, role whitelist, banned words, and verification settings persistently across restarts.
+Uses **PostgreSQL** via [asyncpg](https://github.com/MagicStack/asyncpg). The schema is applied automatically on first startup — no migrations needed.
 
-In-memory structures (deques) are used only for short-lived rate-tracking windows (join timestamps, spam detection, anti-nuke action windows).
+Tables: `strikes`, `strike_log`, `guild_config`, `whitelist`, `banned_words`, `verification_config`.
 
----
-
-## Keep-Alive (Free Repls)
-
-If you are on a **free Replit plan** (not Reserved VM / Always-On), your Repl will sleep after inactivity. You can add a simple keep-alive by pinging your Repl's URL with an external service like [UptimeRobot](https://uptimerobot.com/). No Flask keep-alive is included by default; a **Reserved VM** deployment keeps the bot running 24/7 without one.
+In-memory structures (deques) are used only for short-lived rate-tracking windows (join timestamps, spam detection, anti-nuke action windows) and reset on restart by design.
