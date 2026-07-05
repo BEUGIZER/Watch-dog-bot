@@ -5,29 +5,38 @@
       "idle      — yellow/moon crescent",
       "dnd       — red do-not-disturb",
       "invisible — appears offline",
-      "streaming — purple/live indicator (set streaming_url below)"
+      "streaming — purple/live indicator (requires streaming_url)"
     ],
     "activity_type": [
-      "playing    — 'Playing <name>'",
-      "watching   — 'Watching <name>'",
-      "listening  — 'Listening to <name>'",
-      "competing  — 'Competing in <name>'",
-      "custom     — text on its own (what's on your mind)"
+      "Used when custom_status is empty.",
+      "playing    — 'Playing <activity_name>'",
+      "watching   — 'Watching <activity_name>'",
+      "listening  — 'Listening to <activity_name>'",
+      "competing  — 'Competing in <activity_name>'"
     ],
-    "activity_name": "The text shown next to the activity label.",
+    "custom_status": [
+      "What's on your mind — shows as standalone text.",
+      "When set, this takes priority over activity_type.",
+      "Leave empty to use activity_type instead.",
+      "NOTE: Discord bots can only show one activity at a time,",
+      "so custom_status and activity_type are mutually exclusive."
+    ],
     "streaming_url": [
       "Only used when status is 'streaming'.",
-      "Must be a Twitch or YouTube URL for the purple LIVE badge.",
-      "Example: https://twitch.tv/yourchannel"
+      "Twitch/YouTube URLs → purple LIVE badge.",
+      "Any other URL (e.g. a Discord invite) → clickable link, no badge.",
+      "Example: https://twitch.tv/yourchannel  or  https://discord.gg/yourserver"
     ],
-    "bio": "Set in the Discord Developer Portal → your app → General Information → Description.",
-    "commands": "All slash commands appear automatically in the bot's profile Commands tab."
+    "bio": "Set in Discord Developer Portal → your app → General Information → Description.",
+    "commands": "All slash commands appear automatically in the bot profile Commands tab."
   },
 
   "status": "online",
 
   "activity_type": "watching",
   "activity_name": "for rule violations",
+
+  "custom_status": "",
 
   "streaming_url": ""
 }

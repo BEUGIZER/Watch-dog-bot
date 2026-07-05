@@ -30,14 +30,20 @@ def _load() -> dict:
 
 
 def _build_activity(data: dict) -> discord.BaseActivity | None:
-    status = (data.get("status") or "online").strip().lower()
-    name   = (data.get("activity_name") or "for rule violations").strip()
-    url    = (data.get("streaming_url") or "").strip()
+    status        = (data.get("status") or "online").strip().lower()
+    name          = (data.get("activity_name") or "for rule violations").strip()
+    url           = (data.get("streaming_url") or "").strip()
+    custom_status = (data.get("custom_status") or "").strip()
 
-    # Streaming status → streaming activity (purple LIVE badge)
-    # Discord only shows the badge for Twitch / YouTube URLs.
+    # Streaming status → streaming activity regardless of other fields.
+    # Twitch/YouTube URLs get the purple LIVE badge; any other URL is a plain link.
     if status == "streaming":
         return discord.Streaming(name=name, url=url or "https://twitch.tv/discord")
+
+    # Custom status takes priority over activity_type when set.
+    # (Bots can only show one activity at a time.)
+    if custom_status:
+        return discord.CustomActivity(name=custom_status)
 
     atype = (data.get("activity_type") or "watching").strip().lower()
 
@@ -47,9 +53,6 @@ def _build_activity(data: dict) -> discord.BaseActivity | None:
         return discord.Activity(type=discord.ActivityType.listening, name=name)
     if atype == "competing":
         return discord.Activity(type=discord.ActivityType.competing, name=name)
-    if atype == "custom":
-        # "What's on your mind" — appears as standalone text in the profile popout.
-        return discord.CustomActivity(name=name)
 
     # Default: watching
     return discord.Activity(type=discord.ActivityType.watching, name=name)
@@ -98,10 +101,11 @@ class Presence(commands.Cog):
     async def presence_reload(self, interaction: discord.Interaction):
         data = await self._apply()
 
-        atype  = (data.get("activity_type") or "watching").lower()
-        aname  = data.get("activity_name") or "—"
-        status = (data.get("status") or "online").lower()
-        url    = data.get("streaming_url") or ""
+        atype         = (data.get("activity_type") or "watching").lower()
+        aname         = data.get("activity_name") or "—"
+        status        = (data.get("status") or "online").lower()
+        url           = data.get("streaming_url") or ""
+        custom_status = (data.get("custom_status") or "").strip()
 
         STATUS_ICONS = {
             "online":    "🟢",
@@ -115,7 +119,6 @@ class Presence(commands.Cog):
             "watching":  "Watching",
             "listening": "Listening to",
             "competing": "Competing in",
-            "custom":    "💬",
         }
 
         icon = STATUS_ICONS.get(status, "🟢")
@@ -127,6 +130,11 @@ class Presence(commands.Cog):
             )
             if url:
                 description += f"\n**Stream URL:** {url}"
+        elif custom_status:
+            description = (
+                f"**Status:** {icon} {status.capitalize()}\n"
+                f"**Custom Status:** 💬 {custom_status}"
+            )
         else:
             label = ACTIVITY_LABELS.get(atype, "Watching")
             description = (
