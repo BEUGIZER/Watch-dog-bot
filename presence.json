@@ -1,32 +1,27 @@
 {
   "_docs": {
     "status": [
-      "online   — green circle (default)",
-      "idle     — yellow/moon crescent",
-      "dnd      — red do-not-disturb circle",
-      "invisible — appears offline"
+      "online    — green circle",
+      "idle      — yellow/moon crescent",
+      "dnd       — red do-not-disturb",
+      "invisible — appears offline",
+      "streaming — purple/live indicator (set streaming_url below)"
     ],
     "activity_type": [
       "playing    — 'Playing <name>'",
       "watching   — 'Watching <name>'",
       "listening  — 'Listening to <name>'",
-      "streaming  — 'Live' banner + clickable link (requires streaming_url)",
       "competing  — 'Competing in <name>'",
-      "custom     — shows text on its own (what's on your mind)"
+      "custom     — text on its own (what's on your mind)"
     ],
+    "activity_name": "The text shown next to the activity label.",
     "streaming_url": [
-      "Only used when activity_type is 'streaming'.",
-      "Must be a Twitch or YouTube URL for Discord to show the purple LIVE badge.",
+      "Only used when status is 'streaming'.",
+      "Must be a Twitch or YouTube URL for the purple LIVE badge.",
       "Example: https://twitch.tv/yourchannel"
     ],
-    "bio": [
-      "Bots cannot set their own bio through the API.",
-      "Set it manually: Discord Developer Portal → your app → General Information → Description."
-    ],
-    "commands": [
-      "Discord automatically shows all slash commands in the bot's profile",
-      "under the 'Commands' tab — no extra setup needed."
-    ]
+    "bio": "Set in the Discord Developer Portal → your app → General Information → Description.",
+    "commands": "All slash commands appear automatically in the bot's profile Commands tab."
   },
 
   "status": "online",
@@ -34,7 +29,5 @@
   "activity_type": "watching",
   "activity_name": "for rule violations",
 
-  "streaming_url": "",
-
-  "custom_status": ""
+  "streaming_url": ""
 }

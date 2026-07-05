@@ -30,29 +30,25 @@ def _load() -> dict:
 
 
 def _build_activity(data: dict) -> discord.BaseActivity | None:
+    status = (data.get("status") or "online").strip().lower()
+    name   = (data.get("activity_name") or "for rule violations").strip()
+    url    = (data.get("streaming_url") or "").strip()
+
+    # Streaming status → streaming activity (purple LIVE badge)
+    # Discord only shows the badge for Twitch / YouTube URLs.
+    if status == "streaming":
+        return discord.Streaming(name=name, url=url or "https://twitch.tv/discord")
+
     atype = (data.get("activity_type") or "watching").strip().lower()
-    name  = (data.get("activity_name") or "for rule violations").strip()
-    url   = (data.get("streaming_url") or "").strip()
 
     if atype == "playing":
         return discord.Game(name=name)
-
-    if atype == "streaming":
-        # Discord only shows the purple LIVE badge for Twitch / YouTube URLs.
-        # Falls back to a generic URL so the object is always valid.
-        stream_url = url or "https://twitch.tv/discord"
-        return discord.Streaming(name=name, url=stream_url)
-
     if atype == "listening":
         return discord.Activity(type=discord.ActivityType.listening, name=name)
-
     if atype == "competing":
         return discord.Activity(type=discord.ActivityType.competing, name=name)
-
     if atype == "custom":
-        # Shows as standalone text (what's on your mind).
-        # Note: Discord displays custom activities differently for bots —
-        # it appears in the member list tooltip and profile popout.
+        # "What's on your mind" — appears as standalone text in the profile popout.
         return discord.CustomActivity(name=name)
 
     # Default: watching
@@ -65,6 +61,8 @@ def _build_status(data: dict) -> discord.Status:
         "idle":      discord.Status.idle,
         "dnd":       discord.Status.dnd,
         "invisible": discord.Status.invisible,
+        # Streaming uses online status — the purple indicator comes from the activity type
+        "streaming": discord.Status.online,
     }
     return mapping.get((data.get("status") or "online").strip().lower(), discord.Status.online)
 
@@ -110,25 +108,31 @@ class Presence(commands.Cog):
             "idle":      "🟡",
             "dnd":       "🔴",
             "invisible": "⚫",
+            "streaming": "🟣",
         }
         ACTIVITY_LABELS = {
             "playing":   "Playing",
             "watching":  "Watching",
             "listening": "Listening to",
-            "streaming": "🔴 Live —",
             "competing": "Competing in",
             "custom":    "💬",
         }
 
-        icon  = STATUS_ICONS.get(status, "🟢")
-        label = ACTIVITY_LABELS.get(atype, "Watching")
+        icon = STATUS_ICONS.get(status, "🟢")
 
-        description = (
-            f"**Status:** {icon} {status.capitalize()}\n"
-            f"**Activity:** {label} **{aname}**"
-        )
-        if atype == "streaming" and url:
-            description += f"\n**Stream URL:** {url}"
+        if status == "streaming":
+            description = (
+                f"**Status:** {icon} Streaming\n"
+                f"**Activity:** 🔴 Live — **{aname}**"
+            )
+            if url:
+                description += f"\n**Stream URL:** {url}"
+        else:
+            label = ACTIVITY_LABELS.get(atype, "Watching")
+            description = (
+                f"**Status:** {icon} {status.capitalize()}\n"
+                f"**Activity:** {label} **{aname}**"
+            )
 
         embed = discord.Embed(
             title="✅ Presence Updated",
