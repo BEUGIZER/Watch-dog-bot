@@ -26,20 +26,28 @@ class AntiRaid(commands.Cog):
         return None
 
     async def _apply_lockdown(self, guild: discord.Guild, config: dict) -> None:
-        """Set lockdown in DB and restrict the server."""
+        """Set lockdown in DB and restrict the server, snapshotting prior state for safe restore."""
+        from cogs.config import _pre_lockdown_state
+        everyone = guild.default_role
+
+        # Snapshot current state before changing (only if not already locked)
+        if guild.id not in _pre_lockdown_state:
+            _pre_lockdown_state[guild.id] = {
+                "verification_level": guild.verification_level,
+                "send_messages": everyone.permissions.send_messages,
+            }
+
         await db.set_guild_config_field(guild.id, "lockdown_enabled", 1)
 
-        # Try raising verification level
+        # Raise verification level
         try:
             await guild.edit(verification_level=discord.VerificationLevel.highest)
         except discord.Forbidden:
             pass
 
-        # Also restrict @everyone from sending messages as a belt-and-suspenders fallback
-        everyone = guild.default_role
+        # Restrict @everyone from sending messages
         try:
-            current_perms = everyone.permissions
-            new_perms = discord.Permissions(current_perms.value)
+            new_perms = discord.Permissions(everyone.permissions.value)
             new_perms.update(send_messages=False)
             await everyone.edit(permissions=new_perms, reason="Anti-raid lockdown")
         except Exception:

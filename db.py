@@ -140,8 +140,8 @@ async def add_strike(guild_id: int, user_id: int, reason: str, moderator_id: Opt
         current_count = row["strike_count"] or 0
         last_strike_at = row["last_strike_at"]
 
-        # Decay check
-        if last_strike_at and current_count > 0:
+        # Decay check — 0 means disabled
+        if decay_days > 0 and last_strike_at and current_count > 0:
             try:
                 last_dt = datetime.fromisoformat(str(last_strike_at)).replace(tzinfo=timezone.utc)
                 now = datetime.now(timezone.utc)
@@ -176,25 +176,27 @@ async def add_strike(guild_id: int, user_id: int, reason: str, moderator_id: Opt
 async def remove_strike(guild_id: int, user_id: int) -> int:
     """Decrement strike count by 1 (min 0). Returns new count."""
     db = await get_db()
-    row = await get_strikes(guild_id, user_id)
-    new_count = max(0, (row["strike_count"] or 0) - 1)
-    await db.execute(
-        "INSERT INTO strikes (guild_id, user_id, strike_count, last_strike_at) VALUES (?, ?, ?, ?) "
-        "ON CONFLICT(guild_id, user_id) DO UPDATE SET strike_count = ?",
-        (guild_id, user_id, new_count, datetime.now(timezone.utc).isoformat(), new_count),
-    )
-    await db.commit()
+    async with _lock:
+        row = await get_strikes(guild_id, user_id)
+        new_count = max(0, (row["strike_count"] or 0) - 1)
+        await db.execute(
+            "INSERT INTO strikes (guild_id, user_id, strike_count, last_strike_at) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(guild_id, user_id) DO UPDATE SET strike_count = ?",
+            (guild_id, user_id, new_count, datetime.now(timezone.utc).isoformat(), new_count),
+        )
+        await db.commit()
     return new_count
 
 
 async def reset_strikes(guild_id: int, user_id: int) -> None:
     db = await get_db()
-    await db.execute(
-        "INSERT INTO strikes (guild_id, user_id, strike_count, last_strike_at) VALUES (?, ?, 0, ?) "
-        "ON CONFLICT(guild_id, user_id) DO UPDATE SET strike_count = 0",
-        (guild_id, user_id, datetime.now(timezone.utc).isoformat()),
-    )
-    await db.commit()
+    async with _lock:
+        await db.execute(
+            "INSERT INTO strikes (guild_id, user_id, strike_count, last_strike_at) VALUES (?, ?, 0, ?) "
+            "ON CONFLICT(guild_id, user_id) DO UPDATE SET strike_count = 0",
+            (guild_id, user_id, datetime.now(timezone.utc).isoformat()),
+        )
+        await db.commit()
 
 
 async def get_strike_log(guild_id: int, user_id: int, limit: int = 5) -> list[dict]:

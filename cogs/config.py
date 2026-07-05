@@ -5,9 +5,14 @@ Config cog: server configuration and emergency commands.
 import discord
 from discord import app_commands
 from discord.ext import commands
+from typing import Optional
 
 import db
 import utils
+
+# In-memory store of pre-lockdown state so we can restore accurately
+# { guild_id: {"verification_level": ..., "send_messages": bool | None} }
+_pre_lockdown_state: dict[int, dict] = {}
 
 
 class Config(commands.Cog):
@@ -158,6 +163,11 @@ class Config(commands.Cog):
         everyone = guild.default_role
 
         if state == "on":
+            # Snapshot current state before changing anything
+            _pre_lockdown_state[guild.id] = {
+                "verification_level": guild.verification_level,
+                "send_messages": everyone.permissions.send_messages,
+            }
             await db.set_guild_config_field(guild.id, "lockdown_enabled", 1)
             try:
                 await guild.edit(verification_level=discord.VerificationLevel.highest)
@@ -184,17 +194,21 @@ class Config(commands.Cog):
             await interaction.followup.send("Lockdown **enabled**. Server is now restricted.", ephemeral=True)
         else:
             await db.set_guild_config_field(guild.id, "lockdown_enabled", 0)
+            # Restore pre-lockdown state if available, otherwise use safe defaults
+            prior = _pre_lockdown_state.pop(guild.id, None)
+            restore_level = prior["verification_level"] if prior else discord.VerificationLevel.low
+            restore_send = prior["send_messages"] if prior else True
             try:
-                await guild.edit(verification_level=discord.VerificationLevel.low)
+                await guild.edit(verification_level=restore_level)
             except discord.Forbidden:
                 pass
             try:
                 perms = discord.Permissions(everyone.permissions.value)
-                perms.update(send_messages=True)
+                perms.update(send_messages=restore_send)
                 await everyone.edit(permissions=perms, reason="Lockdown lifted")
             except Exception:
                 pass
-            await interaction.followup.send("Lockdown **disabled**. Server is back to normal.", ephemeral=True)
+            await interaction.followup.send("Lockdown **disabled**. Server restored to previous state.", ephemeral=True)
 
     # ------------------------------------------------------------------
     # /panic
@@ -205,6 +219,13 @@ class Config(commands.Cog):
         await interaction.response.defer(ephemeral=True)
         guild = interaction.guild
         everyone = guild.default_role
+
+        # Snapshot state before locking (for safe restore later)
+        if guild.id not in _pre_lockdown_state:
+            _pre_lockdown_state[guild.id] = {
+                "verification_level": guild.verification_level,
+                "send_messages": everyone.permissions.send_messages,
+            }
 
         # Enable lockdown
         await db.set_guild_config_field(guild.id, "lockdown_enabled", 1)

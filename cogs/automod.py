@@ -58,13 +58,14 @@ class AutoMod(commands.Cog):
 
     # ------------------------------------------------------------------
     # Helper: fetch server invite codes for comparison
+    # Returns None if the fetch fails (caller should skip invite check)
     # ------------------------------------------------------------------
-    async def _get_guild_invite_codes(self, guild: discord.Guild) -> set[str]:
+    async def _get_guild_invite_codes(self, guild: discord.Guild) -> set[str] | None:
         try:
             invites = await guild.invites()
             return {inv.code for inv in invites}
         except Exception:
-            return set()
+            return None
 
     # ------------------------------------------------------------------
     # Helper: apply punishment based on strike count
@@ -220,11 +221,13 @@ class AutoMod(commands.Cog):
         invite_matches = INVITE_PATTERN.findall(content)
         if invite_matches:
             own_codes = await self._get_guild_invite_codes(message.guild)
-            for code in invite_matches:
-                code_clean = code.split("?")[0].strip()
-                if code_clean not in own_codes:
-                    await self._handle_violation(message, "Unauthorized Discord invite link")
-                    return
+            # If we can't fetch invites (missing perms), skip this check to avoid false positives
+            if own_codes is not None:
+                for code in invite_matches:
+                    code_clean = code.split("?")[0].strip()
+                    if code_clean not in own_codes:
+                        await self._handle_violation(message, "Unauthorized Discord invite link")
+                        return
 
         # 4. Mass mentions (5+ users or roles)
         mention_count = len(message.mentions) + len(message.role_mentions)

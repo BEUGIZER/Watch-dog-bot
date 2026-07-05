@@ -118,52 +118,61 @@ class AntiNuke(commands.Cog):
         # Clear actions to prevent re-trigger
         _actor_actions[guild.id][actor_id].clear()
 
-    @commands.Cog.listener()
-    async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel):
-        guild = channel.guild
+    async def _find_actor(
+        self,
+        guild: discord.Guild,
+        action: discord.AuditLogAction,
+        target_id: int,
+    ) -> int | None:
+        """
+        Look through recent audit log entries (up to 5) for the given action,
+        matching on target ID and a 15-second recency window.
+        Returns the actor's user ID, or None if no valid match found.
+        """
+        now = datetime.now(timezone.utc)
         try:
-            async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.channel_delete):
-                actor_id = entry.user.id if entry.user else None
-                if actor_id and actor_id != self.bot.user.id:
-                    triggered = await self._record_action(guild, actor_id, f"channel_delete:{channel.name}")
-                    if triggered:
-                        await self._handle_nuke_attempt(guild, actor_id)
-                break
+            async for entry in guild.audit_logs(limit=5, action=action):
+                # Recency guard: ignore stale entries
+                age = (now - entry.created_at.replace(tzinfo=timezone.utc)).total_seconds()
+                if age > 15:
+                    break
+                # Target match: entry.target is the deleted object
+                entry_target_id = getattr(entry.target, "id", None)
+                if entry_target_id != target_id:
+                    continue
+                if entry.user and entry.user.id != self.bot.user.id:
+                    return entry.user.id
         except discord.Forbidden:
             pass
         except Exception:
             pass
+        return None
+
+    @commands.Cog.listener()
+    async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel):
+        guild = channel.guild
+        actor_id = await self._find_actor(guild, discord.AuditLogAction.channel_delete, channel.id)
+        if actor_id:
+            triggered = await self._record_action(guild, actor_id, f"channel_delete:{channel.name}")
+            if triggered:
+                await self._handle_nuke_attempt(guild, actor_id)
 
     @commands.Cog.listener()
     async def on_guild_role_delete(self, role: discord.Role):
         guild = role.guild
-        try:
-            async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.role_delete):
-                actor_id = entry.user.id if entry.user else None
-                if actor_id and actor_id != self.bot.user.id:
-                    triggered = await self._record_action(guild, actor_id, f"role_delete:{role.name}")
-                    if triggered:
-                        await self._handle_nuke_attempt(guild, actor_id)
-                break
-        except discord.Forbidden:
-            pass
-        except Exception:
-            pass
+        actor_id = await self._find_actor(guild, discord.AuditLogAction.role_delete, role.id)
+        if actor_id:
+            triggered = await self._record_action(guild, actor_id, f"role_delete:{role.name}")
+            if triggered:
+                await self._handle_nuke_attempt(guild, actor_id)
 
     @commands.Cog.listener()
     async def on_member_ban(self, guild: discord.Guild, user: discord.User):
-        try:
-            async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.ban):
-                actor_id = entry.user.id if entry.user else None
-                if actor_id and actor_id != self.bot.user.id:
-                    triggered = await self._record_action(guild, actor_id, f"ban:{user.name}")
-                    if triggered:
-                        await self._handle_nuke_attempt(guild, actor_id)
-                break
-        except discord.Forbidden:
-            pass
-        except Exception:
-            pass
+        actor_id = await self._find_actor(guild, discord.AuditLogAction.ban, user.id)
+        if actor_id:
+            triggered = await self._record_action(guild, actor_id, f"ban:{user.name}")
+            if triggered:
+                await self._handle_nuke_attempt(guild, actor_id)
 
 
 async def setup(bot: commands.Bot):
